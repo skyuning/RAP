@@ -9,6 +9,10 @@
         <link type="text/css" rel="stylesheet" href="${staticRoot}/css/defcontrol.css" />
         <link type="text/css" rel="stylesheet" href="myWorkspace.css?_r=$!timeStamp" />
         <script src="${staticRoot}/js/util/jsformat.js"></script>
+
+        #foreach($projJs in $userProjectDataFiles)
+            <script type="text/javascript" src="${projectContext}/proj_datas/$projJs"></script>
+        #end
     </head>
     <body class="workspace #if(!$accessable)read-only#end">
         #bodyNewStart

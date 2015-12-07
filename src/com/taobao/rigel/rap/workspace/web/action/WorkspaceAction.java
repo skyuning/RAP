@@ -1,8 +1,6 @@
 package com.taobao.rigel.rap.workspace.web.action;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.io.StringWriter;
+import java.io.*;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
@@ -262,8 +260,7 @@ public class WorkspaceAction extends ActionBase {
 	public String myWorkspace() {
 		if (!isUserLogined()) {
 			plsLogin();
-			setRelativeReturnUrl("/workspace/myWorkspace.action?projectId="
-					+ projectId);
+			setRelativeReturnUrl("/workspace/myWorkspace.action?projectId=" + projectId);
 			return LOGIN;
 		}
         Project p = projectMgr.getProject(getProjectId());
@@ -282,7 +279,40 @@ public class WorkspaceAction extends ActionBase {
 		setWorkspaceJsonString(workspace.toString());
 		setWorkspace(workspace);
 		setAccessable(getAccountMgr().canUserManageProject(getCurUserId(), getProjectId()));
+		updateUserProjectDataFiles();
 		return SUCCESS;
+	}
+
+	/**
+	 * 将curUser的project data写到proj_datas/proj_data_{id}.js里，用于全局搜索
+	 */
+	private void updateUserProjectDataFiles() {
+		List<Project> userProjs = projectMgr.getProjectList(getCurUser(), 0, 10);
+		userProjectDataFiles = new ArrayList<String>();
+		for (int i = 0; i < userProjs.size(); i++) {
+			Project proj = userProjs.get(i);
+			File jsFile = new File(SystemConstant.ROOT + "proj_datas/", "proj_data_" + proj.getId() + ".js");
+			if (proj.getUpdateTime().after(new Date(jsFile.lastModified()))) {
+				String content = "rap.userProjDatas = rap.userProjDatas || {};\n" +
+						String.format("rap.userProjDatas[%s] = %s;", proj.getId(), proj.getProjectData());
+				try {
+					new FileOutputStream(jsFile).write(content.getBytes("utf-8"));
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			userProjectDataFiles.add(jsFile.getName());
+		}
+	}
+
+	private List<String> userProjectDataFiles;
+
+	public List<String> getUserProjectDataFiles() {
+		return userProjectDataFiles;
+	}
+
+	public void setUserProjectDataFiles(List<String> userProjectDataFiles) {
+		this.userProjectDataFiles = userProjectDataFiles;
 	}
 
 	private InputStream fileInputStream;
@@ -291,7 +321,7 @@ public class WorkspaceAction extends ActionBase {
 	 * save workspace if this.saveId == -1(default), it's a new save and needs
 	 * projectId and id(workspaceId). else, just need saveId only to cover the
 	 * existed one. all conditions parameters: projectData
-	 * 
+	 *
 	 * @return
 	 */
 	/*
