@@ -395,6 +395,7 @@ function deepCopy(o) {
 (function() {
 
     rap.project = rap.project || {};
+    rap.userProjDatas = rap.userProjDatas || {};
 
     var p = rap.project,
         b = baidu,
@@ -1180,29 +1181,23 @@ function deepCopy(o) {
                 pItem = mItem.pageList[j];
 
                 if (pItem.name.indexOf(key) != -1) {
+                    pItem.projId = p.getId();
                     r[PN].push(pItem);
                 }
 
                 for (k = 0; k < pItem.actionList.length; k++) {
                     aItem = pItem.actionList[k];
                     if (aItem.name.indexOf(key) != -1) {
+                        aItem.projId = p.getId();
                         r[AN].push(aItem);
                     }
                     if (aItem.requestUrl.indexOf(key) != -1) {
+                        aItem.projId = p.getId();
                         r[AU].push(aItem);
                     }
                 }
             }
         }
-
-        for (i = 0; i < KEYS.length; i++) {
-            n = r[KEYS[i]].length;
-            r[KEYS[i] + '_length'] = n;
-            if (n > RESULT_LENGTH_LIMIT) {
-                r[KEYS[i]].length = RESULT_LENGTH_LIMIT;
-            }
-        }
-
         return r;
     };
 
@@ -1482,19 +1477,15 @@ function deepCopy(o) {
 
     };
 
-    ws.workspaceSearchResultHandler = function(type, id) {
+    ws.workspaceSearchResultHandler = function(actionId, projId) {
         var page;
-        var actionId;
         var moduleId;
-        if (type === 'a') {
-            actionId = id;
-        } else if (type === 'p') {
-            page = p.getPage(id);
-            if (page.actionList.length) {
-                actionId = page.actionList[0].id;
-            }
-        }
 
+        if (projId != p.getId()) {
+            var url = "/workspace/myWorkspace.action?projectId=" + projId + "#" + actionId;
+            window.location.href=url;
+            return;
+        }
 
         if (actionId) {
             moduleId = p.getModuleIdByActionId(actionId);
@@ -3576,7 +3567,7 @@ function deepCopy(o) {
             Object.keys(f).forEach(function(key) {
                 oldKey = key;
                 oldItem = f[key];
-                if (f[key] && f[key] instanceof Array && f[key].length > 1 
+                if (f[key] && f[key] instanceof Array && f[key].length > 1
                     && f[key][0] instanceof Object && f[key][0] !== null
                     && !(f[key][0] instanceof Array)) {
                     key = key + '|' + f[key].length;
@@ -3657,7 +3648,20 @@ function deepCopy(o) {
         if ($.trim(key) === '') {
             $('#dropdown-workspace-search').hide();
         } else {
+            var curData = p.getData();
             var r = p.search(key);
+            for (var id in rap.userProjDatas) {
+                p.init(rap.userProjDatas[id]);
+                if (p.getId() == curData.id) {
+                    continue;
+                }
+                var _r = p.search(key);
+                r[AN] = r[AN].concat(_r[AN]);
+                r[AU] = r[AU].concat(_r[AU]);
+                r[PN] = r[PN].concat(_r[PN]);
+            };
+            p.init(curData);
+
             if (r[AN].length || r[AU].length || r[PN].length) {
                 $('#dropdown-workspace-search').html(getSearchResultHTML(r));
                 $('#dropdown-workspace-search').show();
@@ -3704,16 +3708,13 @@ function deepCopy(o) {
             // action name results
             html = '';
             n = r[AN].length;
-            num = n;
             if (n) {
-                html += '<li role="presentation" class="dropdown-header">Action Name (' + r[AN + "_length"]  + ')</li>';
+                html += '<li role="presentation" class="dropdown-header">Action Name (' + n + ')</li>\n';
                 while (n--) {
                     o = r[AN][n];
-                    html += '<li role="presentation" class="item"><a role="menuitem" tabindex="-1" href="#" onclick="ws.workspaceSearchResultHandler(\'a\', ' +
-                        o.id + ');">' + o.name + '&nbsp;&nbsp;' + o.requestUrl + '</a></li>';
-                }
-                if (r[AN + "_length"] > num) {
-                    html += '<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="return false;">... ...</a></li>';
+                    html += '<li role="presentation" class="item"><a role="menuitem" tabindex="-1" href="#"' +
+                        ' onclick="ws.workspaceSearchResultHandler(' + o.id + ', ' + o.projId + ');">' +
+                        o.name + '&nbsp;&nbsp;' + o.requestUrl + '</a></li>';
                 }
                 htmlList.push(html);
             }
@@ -3721,16 +3722,13 @@ function deepCopy(o) {
             // action url results
             html = '';
             n = r[AU].length;
-            num = n;
             if (n) {
-                html += '<li role="presentation" class="dropdown-header">Request Url (' + r[AU + "_length"] + ')</li>';
+                html += '<li role="presentation" class="dropdown-header">Request Url (' + n + ')</li>';
                 while (n--) {
                     o = r[AU][n];
-                    html += '<li role="presentation" class="item"><a role="menuitem" tabindex="-1" href="#" onclick="ws.workspaceSearchResultHandler(\'a\', ' +
-                        o.id + ');">' + o.name + '&nbsp;&nbsp;' + o.requestUrl + '</a></li>';
-                }
-                if (r[AU + "_length"] > num) {
-                    html += '<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="return false;">... ...</a></li>';
+                    html += '<li role="presentation" class="item"><a role="menuitem" tabindex="-1" href="#"' +
+                        ' onclick="ws.workspaceSearchResultHandler(' + o.id + ', ' + o.projId + ');">' +
+                        o.name + '&nbsp;&nbsp;' + o.requestUrl + '</a></li>';
                 }
                 htmlList.push(html);
             }
@@ -3738,16 +3736,17 @@ function deepCopy(o) {
             // page name results
             html = '';
             n = r[PN].length;
-            num = n;
             if (n) {
-                html += '<li role="presentation" class="dropdown-header">Page Name (' + r[PN + "_length"] + ')</li>';
+                html += '<li role="presentation" class="dropdown-header">Page Name (' + n + ')</li>';
                 while (n--) {
                     o = r[PN][n];
-                    html += '<li role="presentation" class="item"><a role="menuitem" tabindex="-1" href="#" onclick="ws.workspaceSearchResultHandler(\'p\', ' +
-                        o.id + ');">' + o.name + '</a></li>';
-                }
-                if (r[PN + "_length"] > num) {
-                    html += '<li role="presentation"><a role="menuitem" tabindex="-1" href="#" onclick="return false;">... ...</a></li>';
+                    var actionId;
+                    if (o.actionList.length) {
+                        actionId = o.actionList[0].id;
+                    }
+                    html += '<li role="presentation" class="item"><a role="menuitem" tabindex="-1" href="#"' +
+                        ' onclick="ws.workspaceSearchResultHandler(' + actionId + ', ' + o.projId + ');">' +
+                        o.name + '</a></li>';
                 }
                 htmlList.push(html);
             }

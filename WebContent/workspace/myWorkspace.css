@@ -725,6 +725,7 @@ body {
 
 #dropdown-workspace-search .dropdown-menu {
 	min-width: 300px; max-width: 687px;
+	max-height: 500px; overflow-y: auto;
 }
 
 #dropdown-workspace-search .dropdown-menu li a {
